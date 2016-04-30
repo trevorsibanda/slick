@@ -16,6 +16,8 @@ templates are created by the Slick team, with updated versions being made for ne
 
 * The `Slick TestKit Example template`_ shows you how to use Slick TestKit to test your own Slick profiles.
 
+* Read through the :doc:`Frequently Asked Questions Section  <faq>`
+
 There are more Slick templates created by the community, as well as versions of our own templates for other
 Slick releases. You can find `all Slick templates <https://typesafe.com/activator/templates#filter:slick>`_
 on the Typesafe web site.

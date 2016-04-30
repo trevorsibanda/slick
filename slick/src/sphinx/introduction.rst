@@ -141,6 +141,8 @@ Next Steps
 ----------
 
 * If you are new to Slick, continue to :doc:`Getting Started <gettingstarted>`
+* Read through the :doc:`Frequently Asked Questions   <faq>`
 * If you have used an older version of Slick, make sure to read the :doc:`Upgrade Guides <upgrade>`
 * If you have used an ORM before, see :doc:`Coming from ORM to Slick <orm-to-slick>`
 * If you are familiar with SQL, see :doc:`Coming from SQL to Slick <sql-to-slick>`
+
