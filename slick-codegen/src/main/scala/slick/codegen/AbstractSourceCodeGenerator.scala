@@ -15,7 +15,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
       @group Basic customization overrides */
   def code = {
     "import slick.model.ForeignKeyAction\n" +
-    ( if(tables.exists(_.hlistEnabled)){
+    ( if(tables.exists(_.hlistEnabled) || tables.exists(_.columns.size >= 22)){
         "import slick.collection.heterogeneous._\n"+
         "import slick.collection.heterogeneous.syntax._\n"
       } else ""
@@ -61,10 +61,18 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
       if(hlistEnabled) values.mkString(" :: ") + " :: HNil"
       else if (values.size == 1) values.head
       else if(values.size <= 22) s"""(${values.mkString(", ")})"""
-      else throw new Exception("Cannot generate tuple for > 22 columns, please set hlistEnable=true or override compound.")
+      else values.mkString("(" , " :: ", " :: HNil)")
+      //throw new Exception("Cannot generate tuple for > 22 columns, please set hlistEnable=true or override compound.")
     }
 
-    def factory   = if(columns.size == 1) TableClass.elementType else s"${TableClass.elementType}.tupled"
+    def factory   = if(columns.size == 1) TableClass.elementType 
+                    else if(columns.size > 22 & ! hlistEnabled ){
+                      columns.map(c => 
+                        {
+                          s"x(${columns.indexOf(c)})"
+                      }).mkString(s"({case x => ${TableClass.elementType}(" , "," , ")})" )
+                    }
+                    else s"${TableClass.elementType}.tupled"
     def extractor = s"${TableClass.elementType}.unapply"
 
     trait EntityTypeDef extends super.EntityTypeDef{
@@ -78,7 +86,19 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
         ).mkString(", ")
         if(classEnabled){
           val prns = (parents.take(1).map(" extends "+_) ++ parents.drop(1).map(" with "+_)).mkString("")
-          s"""case class $name($args)$prns"""
+          val companion: String = if(columns.size >= 22) s"""
+object $name{
+  def unapply(x: $name ) = {
+    val data = ${columns.map(c => "x."+c.name).mkString("" , " :: " , " :: HNil")}
+    Option[data.type](data)
+  }
+}
+"""
+                                  else ""
+s"""
+$companion
+case class $name($args)$prns
+"""
         } else {
           s"""
 type $name = $types
@@ -93,18 +113,25 @@ def $name($args): $name = {
 
     trait PlainSqlMapperDef extends super.PlainSqlMapperDef{
       def code = {
-        val positional = compoundValue(columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
+        def fn(values: Seq[String] , force: Boolean = false) = {
+          if(hlistEnabled || ( values.size >= 22 && force ) ) values.mkString("(" , " :: " , " :: HNil)")
+          else if (values.size == 1) s"""( ${values.head} )"""
+          else values.mkString("(" ," , " , " )")
+        }
+
+        val positional = fn(columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
         val dependencies = columns.map(_.exposedType).distinct.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
-        val rearranged = compoundValue(desiredColumnOrder.map(i => if(hlistEnabled) s"r($i)" else tuple(i)))
-        def result(args: String) = if(mappingEnabled) s"$factory($args)" else args
+        val rearranged = fn(desiredColumnOrder.map(i => if(hlistEnabled) s"r($i)" else tuple(i)) , true)
+        def result(args: String) = s"""${TableClass.elementType}${args}""" 
         val body =
-          if(autoIncLastAsOption && columns.size > 1){
+          if(autoIncLastAsOption && columns.size > 1 && columns.size <= 22 ){
             s"""
 val r = $positional
 import r._
 ${result(rearranged)} // putting AutoInc last
             """.trim
-          } else
+          } 
+          else
            result(positional)
         s"""
 implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR{
@@ -124,7 +151,7 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
       def option = {
         val struct = compoundValue(columns.map(c=>if(c.model.nullable)s"${c.name}" else s"Rep.Some(${c.name})"))
         val rhs = if(mappingEnabled) s"""$struct.shaped.<>($optionFactory, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))""" else struct
-        s"def ? = $rhs"
+        if( columns.size > 22 && !hlistEnabled ) s"""def ? = throw new Exception("? Projection not created for case class with > 22 columns.")""" else s"def ? = $rhs"
       }
       def optionFactory = {
         val accessors = columns.zipWithIndex.map{ case(c,i) =>

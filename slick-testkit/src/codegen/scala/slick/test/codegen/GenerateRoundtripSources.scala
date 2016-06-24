@@ -176,38 +176,6 @@ class Tables(val profile: JdbcProfile){
     def * = _1 :: _2 :: _3 :: _4 :: _5 :: _6 :: _7 :: _8 :: _9 :: _10 :: _11 :: _12 :: _13 :: _14 :: _15 ::_16 :: _17 :: _18 :: _19 :: _20 :: _21 :: _22::  _23 :: Nil 
   }
 
-  class Case22(tag: Tag ) extends Table[Case22Row](tag, "case22"){
-    def _1 = column[Int]("_1") 
-    def _2 = column[Int]("_2") 
-    def _3 = column[Int]("_3") 
-    def _4 = column[Int]("_4") 
-    def _5 = column[Int]("_5") 
-    def _6 = column[Int]("_6") 
-    def _7 = column[Int]("_7") 
-    def _8 = column[Int]("_8") 
-    def _9 = column[Int]("_9") 
-    def _10 = column[Int]("_10") 
-    def _11 = column[Int]("_11") 
-    def _12 = column[Int]("_12") 
-    def _13 = column[Int]("_13") 
-    def _14 = column[Int]("_14") 
-    def _15 = column[Int]("_15") 
-    def _16 = column[Int]("_16") 
-    def _17 = column[Int]("_17") 
-    def _18 = column[Int]("_18") 
-    def _19 = column[Int]("_19") 
-    def _20 = column[Int]("_20") 
-    def _21 = column[Int]("_21") 
-    def _22 = column[Int]("_22")
-    def _23 = column[Int]("_23")
-
-    def * = {
-
-      slick.lifted.ShapedValue.mapToImpl(_1.asInstanceOf[Int] :: _2.asInstanceOf[Int] :: _3.asInstanceOf[Int] :: _4.asInstanceOf[Int] :: _5.asInstanceOf[Int] :: _6.asInstanceOf[Int] :: _7.asInstanceOf[Int] :: _8.asInstanceOf[Int] :: _9.asInstanceOf[Int] :: _10.asInstanceOf[Int] :: _11.asInstanceOf[Int] :: _12.asInstanceOf[Int] :: _13.asInstanceOf[Int] :: _14.asInstanceOf[Int] :: _15.asInstanceOf[Int] ::_16.asInstanceOf[Int] :: _17.asInstanceOf[Int] :: _18.asInstanceOf[Int] :: _19.asInstanceOf[Int] :: _20.asInstanceOf[Int] :: _21.asInstanceOf[Int] :: _22.asInstanceOf[Int]::  _23.asInstanceOf[Int] :: Nil) 
-    }
-    //def * = new Case22Row(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,_23).* 
-  }
-
   // testing table larger 22 columns (code gen round trip does not preserve structure of the * projection or names of mapped to classes)
   case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
   case class Whole(id: Long, p1: Part, p2: Part, p3: Part, p4: Part, p5: Part, p6: Part)

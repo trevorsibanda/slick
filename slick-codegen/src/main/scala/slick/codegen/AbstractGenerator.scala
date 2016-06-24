@@ -87,7 +87,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     def compoundValue(values: Seq[Code]): Code
     /** If HList should be used as a compound type instead of tuples. Default to true for > 22 columns.
         @group Basic customization overrides */
-    def hlistEnabled = columns.size > 22
+    def hlistEnabled = false
     /** Indicates whether auto increment columns should be put last and made an Option with a None default.
         Please set to !hlistEnabled for switching this on.
         @group Basic customization overrides */
