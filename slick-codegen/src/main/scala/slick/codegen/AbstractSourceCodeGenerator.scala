@@ -151,7 +151,7 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
       def option = {
         val struct = compoundValue(columns.map(c=>if(c.model.nullable)s"${c.name}" else s"Rep.Some(${c.name})"))
         val rhs = if(mappingEnabled) s"""$struct.shaped.<>($optionFactory, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))""" else struct
-        if( columns.size > 22 && !hlistEnabled ) s"""def ? = throw new Exception("? Projection not created for case class with > 22 columns.")""" else s"def ? = $rhs"
+        if( columns.size > 22 && !hlistEnabled ) s"""""" else s"def ? = $rhs"
       }
       def optionFactory = {
         val accessors = columns.zipWithIndex.map{ case(c,i) =>

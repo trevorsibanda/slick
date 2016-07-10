@@ -172,10 +172,6 @@ class Tables(val profile: JdbcProfile){
   }
   val typeTest = TableQuery[TypeTest]
 
-  case class Case22Row(_1: Int,_2: Int,_3: Int,_4: Int,_5: Int,_6: Int,_7: Int,_8: Int,_9: Int,_10: Int,_11: Int, _12: Int, _13: Int,_14: Int,_15: Int,_16: Int, _17: Int, _18: Int, _19: Int, _20: Int , _21: Int, _22: Int, _23: Int){
-    def * = _1 :: _2 :: _3 :: _4 :: _5 :: _6 :: _7 :: _8 :: _9 :: _10 :: _11 :: _12 :: _13 :: _14 :: _15 ::_16 :: _17 :: _18 :: _19 :: _20 :: _21 :: _22::  _23 :: Nil 
-  }
-
   // testing table larger 22 columns (code gen round trip does not preserve structure of the * projection or names of mapped to classes)
   case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
   case class Whole(id: Long, p1: Part, p2: Part, p3: Part, p4: Part, p5: Part, p6: Part)
