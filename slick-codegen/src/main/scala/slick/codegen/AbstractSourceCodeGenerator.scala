@@ -57,22 +57,43 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
       else compoundValue(types)
     }
 
-    def compoundValue(values: Seq[String]): String = {
+    //build and nest tuples if > 22 elements
+    def tupleBuilder(values: Seq[String] , prefix: String): String = {
+      def mkTuple[T](l: Seq[T], _prefix: String) = l.map{ s => _prefix + s}.mkString("(" , " ," , ")")
+      def group[T](l: Seq[T] ) : Seq[ Seq[T] ] = {
+          if( l.isEmpty ) Seq[ Seq[T] ]()
+          else Seq[Seq[T]](l.take(22)) ++ group(l.drop(22) )
+      }
+      if(values.size <= 22) mkTuple(values,"") else mkTuple( group(values).map {mkTuple(_,prefix)} , "" )
+    }
+
+    def tupleFactoryBuilder(columns: Seq[Column]): String = {
+        if(columns.size <= 22 ) s"${TableClass.elementType}.tupled"
+        else{
+          val count = if( columns.size%22 == 0 ) columns.size/22 else (columns.size/22)+1
+          val tuples = for( i <- Range(0,count)) yield s"t${i}"
+          s"""{case ${tuples.mkString("(",",",")")} => ${TableClass.elementType}""" + tuples.map {
+            tple => {
+              val mod = if(tuples.size == 1 ) columns.size 
+                        else if(tuples.indexOf(tple) == 0 && columns.size > 22) 22  
+                        else columns.size%(tuples.indexOf(tple) * 22)
+              val entries = if( mod == 0 ) 22 else mod   
+              for( i <- Range(0,entries) ) yield s"${tple}.${tuple(i)}"
+            }
+          }.flatten.mkString("(" , " ," , ")") + "}" 
+        }
+    }
+
+    def compoundValue(values: Seq[String]) = compoundValue(values , "")
+    def compoundValue(values: Seq[String] , prefix: String): String = {
       if(hlistEnabled) values.mkString(" :: ") + " :: HNil"
       else if (values.size == 1) values.head
-      else if(values.size <= 22) s"""(${values.mkString(", ")})"""
-      else values.mkString("(" , " :: ", " :: HNil)")
-      //throw new Exception("Cannot generate tuple for > 22 columns, please set hlistEnable=true or override compound.")
+      else tupleBuilder(values, prefix)
     }
 
     def factory   = if(columns.size == 1) TableClass.elementType 
-                    else if(columns.size > 22 & ! hlistEnabled ){
-                      columns.map(c => 
-                        {
-                          s"x(${columns.indexOf(c)})"
-                      }).mkString(s"({case x => ${TableClass.elementType}(" , "," , ")})" )
-                    }
-                    else s"${TableClass.elementType}.tupled"
+                    else if( hlistEnabled ) columns.map( c => c ).mkString("(" , " ::" , " HNil")
+                    else tupleFactoryBuilder(columns)
     def extractor = s"${TableClass.elementType}.unapply"
 
     trait EntityTypeDef extends super.EntityTypeDef{
@@ -89,7 +110,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
           val companion: String = if(columns.size >= 22) s"""
 object $name{
   def unapply(x: $name ) = {
-    val data = ${columns.map(c => "x."+c.name).mkString("" , " :: " , " :: HNil")}
+    val data = ${compoundValue(columns.map(_.name) , "x.")}
     Option[data.type](data)
   }
 }
@@ -113,15 +134,14 @@ def $name($args): $name = {
 
     trait PlainSqlMapperDef extends super.PlainSqlMapperDef{
       def code = {
-        def fn(values: Seq[String] , force: Boolean = false) = {
-          if(hlistEnabled || ( values.size >= 22 && force ) ) values.mkString("(" , " :: " , " :: HNil)")
-          else if (values.size == 1) s"""( ${values.head} )"""
+        def mkArgs(values: Seq[String] ) = {
+          if (values.size == 1) s"""( ${values.head} )"""
           else values.mkString("(" ," , " , " )")
         }
 
-        val positional = fn(columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
+        val positional = mkArgs(columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
         val dependencies = columns.map(_.exposedType).distinct.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
-        val rearranged = fn(desiredColumnOrder.map(i => if(hlistEnabled) s"r($i)" else tuple(i)) , true)
+        val rearranged = mkArgs(desiredColumnOrder.map(i => tuple(i)) )
         def result(args: String) = s"""${TableClass.elementType}${args}""" 
         val body =
           if(autoIncLastAsOption && columns.size > 1 && columns.size <= 22 ){

@@ -29,6 +29,7 @@ object GenerateRoundtripSources {
     })
     val a2 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
       override def Table = new Table(_){
+        override def hlistEnabled = true
         override def autoIncLastAsOption = true
       }
     })
