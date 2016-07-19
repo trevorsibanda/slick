@@ -85,6 +85,7 @@ trait TestCodeGenerator {
     def testCode: String = defaultTestCode(this)
 
     class MyGen(model:Model) extends SourceCodeGenerator(model) {
+      override def pattern = super.pattern
       override def entityName = sqlName => {
         val baseName = super.entityName(sqlName)
         if(baseName.dropRight(3).last == 's') baseName.dropRight(4)

@@ -32,7 +32,13 @@ trait OutputHelpers{
   def patternBuilder( tables: Seq[GeneratedTable],  profile: String, pkg: String, container: String, parentType: Option[String] , pattern: Pattern ): Seq[GeneratedCode] = pattern match{
     case Pattern.UnPackaged => Seq( GeneratedCode(code= indent(tables.map{ t => t.code + "\n\n"}.mkString) ,pkg,None) )
     case Pattern.Plain => {
-      Seq()
+      Seq( GeneratedCode(code =s"""
+package ${pkg}
+// AUTO-GENERATED Slick data model
+/** Stand-alone Slick data model for immediate use */
+
+/** Slick Plain Data Model -> As-Is**/
+""".stripMargin , pkg , None ) )
     }
     case Pattern.NestedObjects => {
       val schemas: Set[String] = tables.map{ _.schema.getOrElse("Db") }.toSet
@@ -51,7 +57,7 @@ trait OutputHelpers{
 package ${pkg}
 // AUTO-GENERATED Slick data model
 /** Stand-alone Slick data model for immediate use */
-object ${container}{
+object ${container} ${parentType.map(t => s" extends $t").getOrElse("")}{
   val profile: slick.jdbc.JdbcProfile = $profile
   import profile.api._
 ${indent(dependencies)}
