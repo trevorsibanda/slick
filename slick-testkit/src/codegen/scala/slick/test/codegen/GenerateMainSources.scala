@@ -35,7 +35,7 @@ object GenerateMainSources extends TestCodeGenerator {
           case "SUPPLIERS" => "Supps"
           case other => super.tableName(other)
         }
-        override def code = "trait AA; trait BB\n" + super.code
+        override def dependencies = "trait AA; trait BB\n" + super.dependencies
         override def Table = new Table(_){
           override def EntityType = new EntityType{
             override def parents = Seq("AA","BB")
@@ -74,6 +74,7 @@ val  SimpleA = CustomTyping.SimpleA
     },
     new Config("CG9", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
       override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+        override def pattern = Pattern.NestedObjects
         override def Table = new Table(_){
           override def autoIncLastAsOption = true
         }

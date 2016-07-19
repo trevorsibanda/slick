@@ -118,6 +118,7 @@ object GeneratedCodeTest {
 
   def testCG9 = {
     import CG9._
+    import Db._
     import profile.api._
     def assertAll(all: Seq[ERow]) = {
       assertEquals( 3, all.size )

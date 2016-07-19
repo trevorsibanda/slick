@@ -24,6 +24,8 @@ trait TestCodeGenerator {
     new OutputHelpers {
       def indent(code: String): String = code
       def code: String = ""
+      val generatedTables: Seq[GeneratedTable] = Seq()
+      val dependencies: String = ""
     }.writeStringToFile(
       s"""
          |package $packageName
@@ -89,7 +91,7 @@ trait TestCodeGenerator {
         else baseName
       }
       override def parentType = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
-      override def code = {
+      override def dependencies = {
         s"""
            |lazy val tdb = $fullTdbName
            |def test = {
@@ -97,7 +99,7 @@ trait TestCodeGenerator {
            |  import scala.concurrent.ExecutionContext.Implicits.global
            |  $testCode
            |}
-         """.stripMargin + super.code
+         """.stripMargin + super.dependencies
       }
     }
   }

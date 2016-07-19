@@ -6,7 +6,83 @@ import slick.SlickException
 
 /** Output-related code-generation utilities. */
 trait OutputHelpers{
+  /** Patterns for outputing generated code**/
+  trait Pattern
+  object Pattern{
+    case object UnPackaged extends Pattern
+    case object Cake extends Pattern
+    val Default = Cake
+    case object Plain extends Pattern
+    case object NestedObjects extends Pattern
+  }
+
   def code: String
+
+  case class GeneratedTable(val name: String, val schema: Option[String], val code: String)
+  
+  /** Dependency statements and imports for a packaging pattern
+   *  @group Basic customization overrides
+   */
+  def dependencies: String
+  /** Generated Tables **/
+  val generatedTables: Seq[GeneratedTable]
+
+  case class GeneratedCode(val code: String , val pkg: String, val fileName: Option[String] )
+  /** Builds code based on the pattern used **/
+  def patternBuilder( tables: Seq[GeneratedTable],  profile: String, pkg: String, container: String, parentType: Option[String] , pattern: Pattern ): Seq[GeneratedCode] = pattern match{
+    case Pattern.UnPackaged => Seq( GeneratedCode(code= indent(tables.map{ t => t.code + "\n\n"}.mkString) ,pkg,None) )
+    case Pattern.Plain => {
+      Seq()
+    }
+    case Pattern.NestedObjects => {
+      val schemas: Set[String] = tables.map{ _.schema.getOrElse("Db") }.toSet
+      val pkgs = schemas.map{
+        s => {
+          val tbls = tables.filter( _.schema.getOrElse("Db") eq s )
+          s"""
+  object $s{
+      ${indent( patternBuilder(tbls, profile, pkg, container, parentType, Pattern.UnPackaged).map{_.code}.mkString ) }
+  }
+
+          """.stripMargin
+        }
+      }
+      Seq( GeneratedCode(code =s"""
+package ${pkg}
+// AUTO-GENERATED Slick data model
+/** Stand-alone Slick data model for immediate use */
+object ${container}{
+  val profile: slick.jdbc.JdbcProfile = $profile
+  import profile.api._
+${indent(dependencies)}
+${pkgs.map{ x => x }.mkString }
+
+}
+
+""".trim , pkg , None ) )
+    }
+    case Pattern.Cake => Seq( GeneratedCode(code = s"""
+package ${pkg}
+// AUTO-GENERATED Slick data model
+/** Stand-alone Slick data model for immediate use */
+object ${container} extends {
+val profile = $profile
+} with ${container}
+
+/** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.) */
+trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
+val profile: slick.jdbc.JdbcProfile
+import profile.api._
+${indent(dependencies)}
+${patternBuilder(tables, profile, pkg, container, parentType, Pattern.UnPackaged).map{_.code}.mkString}
+}
+    """.trim() , pkg , None ) )
+  }
+
+  /**
+   *
+   **/
+  def packageName(pkg: String): String = s"Db$pkg"
 
   /** The parent type of the generated main trait. This can be overridden in subclasses. */
   def parentType: Option[String] = None
@@ -44,9 +120,13 @@ trait OutputHelpers{
    * @param pkg Scala package the generated code is placed in (a subfolder structure will be created within srcFolder)
    * @param container The name of a trait and an object the generated code will be placed in within the specified package.
    * @param fileName Name of the output file, to which the code will be written
+   * @param pattern The pattern to use for generating the code
    */
-  def writeToFile(profile: String, folder:String, pkg: String, container:String="Tables", fileName: String="Tables.scala") {
-    writeStringToFile(packageCode(profile, pkg, container, parentType), folder, pkg, fileName)
+  def writeToFile(profile: String, folder:String, pkg: String, container:String="Tables", fileName: String="Tables.scala", pattern: Pattern = Pattern.Default) {
+    val generatedCode = patternBuilder(generatedTables, profile: String, pkg: String, container: String, parentType: Option[String] , pattern )
+    (pattern , generatedCode) match{
+      case (Pattern.Cake|Pattern.Plain|Pattern.NestedObjects,_) => generatedCode.map{ g => writeStringToFile(g.code , folder , pkg , fileName) }
+    }
   }
 
   /**
@@ -57,20 +137,6 @@ trait OutputHelpers{
    * @param container The name of a trait and an object the generated code will be placed in within the specified package.
    */
   def packageCode(profile: String, pkg: String, container: String, parentType: Option[String]) : String = {
-      s"""
-package ${pkg}
-// AUTO-GENERATED Slick data model
-/** Stand-alone Slick data model for immediate use */
-object ${container} extends {
-  val profile = $profile
-} with ${container}
-
-/** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.) */
-trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
-  val profile: slick.jdbc.JdbcProfile
-  import profile.api._
-  ${indent(code)}
-}
-      """.trim()
-    }
+   ""  
+  }
 }

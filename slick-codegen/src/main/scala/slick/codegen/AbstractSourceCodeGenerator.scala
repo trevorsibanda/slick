@@ -10,37 +10,47 @@ import slick.sql.SqlProfile
 /** Base implementation for a Source code String generator */
 abstract class AbstractSourceCodeGenerator(model: m.Model)
                    extends AbstractGenerator[String,String,String](model)
-                   with StringGeneratorHelpers{
+                   with StringGeneratorHelpers with OutputHelpers{
+  val generatedTables: Seq[GeneratedTable] = tables.map{ 
+    t => GeneratedTable(t.model.name.table , t.model.name.schema, t.code.mkString("\n")) 
+  }
+
+  /** Dependency statements and imports for a packaging pattern
+   *  @group Basic customization overrides
+   */
+  def dependencies: String = {
+        def prefix(t: Table) = (if (pattern eq Pattern.NestedObjects) packageName(t.model.name.schema.getOrElse("")+".") else "" )
+        "import slick.model.ForeignKeyAction\n" +
+        ( if(tables.exists(_.hlistEnabled)){
+            "import slick.collection.heterogeneous._\n"+
+            "import slick.collection.heterogeneous.syntax._\n"
+          } else ""
+        ) +
+        ( if(tables.exists(_.PlainSqlMapper.enabled)){
+            "// NOTE: GetResult mappers for plain SQL are only generated for tables where Slick knows how to map the types of all columns.\n"+
+            "import slick.jdbc.{GetResult => GR}\n"
+          } else ""
+        ) +
+        (if(ddlEnabled){
+          "\n/** DDL for all tables. Call .create to execute. */" +
+          (
+            if(tables.length > 5)
+              "\nlazy val schema: profile.SchemaDescription = Array(" + tables.map( t => prefix(t)+ t.TableValue.name + ".schema").mkString(", ") + ").reduceLeft(_ ++ _)"
+            else if(tables.nonEmpty)
+              "\nlazy val schema: profile.SchemaDescription = " + tables.map(t => prefix(t) + t.TableValue.name + ".schema").mkString(" ++ ")
+            else
+              "\nlazy val schema: profile.SchemaDescription = profile.DDL(Nil, Nil)"
+          ) +
+          "\n@deprecated(\"Use .schema instead of .ddl\", \"3.0\")"+
+          "\ndef ddl = schema" +
+          "\n\n"
+        } else "")    
+  }
+
+  def pattern: Pattern = Pattern.UnPackaged
   /** Generates code for the complete model (not wrapped in a package yet)
       @group Basic customization overrides */
-  def code = {
-    "import slick.model.ForeignKeyAction\n" +
-    ( if(tables.exists(_.hlistEnabled)){
-        "import slick.collection.heterogeneous._\n"+
-        "import slick.collection.heterogeneous.syntax._\n"
-      } else ""
-    ) +
-    ( if(tables.exists(_.PlainSqlMapper.enabled)){
-        "// NOTE: GetResult mappers for plain SQL are only generated for tables where Slick knows how to map the types of all columns.\n"+
-        "import slick.jdbc.{GetResult => GR}\n"
-      } else ""
-    ) +
-    (if(ddlEnabled){
-      "\n/** DDL for all tables. Call .create to execute. */" +
-      (
-        if(tables.length > 5)
-          "\nlazy val schema: profile.SchemaDescription = Array(" + tables.map(_.TableValue.name + ".schema").mkString(", ") + ").reduceLeft(_ ++ _)"
-        else if(tables.nonEmpty)
-          "\nlazy val schema: profile.SchemaDescription = " + tables.map(_.TableValue.name + ".schema").mkString(" ++ ")
-        else
-          "\nlazy val schema: profile.SchemaDescription = profile.DDL(Nil, Nil)"
-      ) +
-      "\n@deprecated(\"Use .schema instead of .ddl\", \"3.0\")"+
-      "\ndef ddl = schema" +
-      "\n\n"
-    } else "") +
-    tables.map(_.code.mkString("\n")).mkString("\n\n")
-  }
+  def code = patternBuilder( generatedTables ,"slick.jdbc.JdbcProfile" , "slick.codegen", "Tables" , None , pattern).map{ _.code }.mkString
 
   protected def tuple(i: Int) = termName(s"_${i+1}")
 

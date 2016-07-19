@@ -32,6 +32,12 @@ import slick.util.ConfigExtensionMethods.configExtensionMethods
  */
 class SourceCodeGenerator(model: m.Model)
                    extends AbstractSourceCodeGenerator(model) with OutputHelpers{
+  override def pattern: Pattern = Pattern.Cake
+
+  override def writeToFile(profile: String, folder:String, pkg: String, container:String="Tables", fileName: String="Tables.scala", pattern: Pattern = this.pattern)={
+    super.writeToFile(profile,folder,pkg,container,fileName,pattern)
+  }
+
   // "Tying the knot": making virtual classes concrete
   type Table = TableDef
   def Table = new TableDef(_)
@@ -56,6 +62,7 @@ class SourceCodeGenerator(model: m.Model)
     type Index          =     IndexDef  
     def  Index          = new Index(_)
   }
+
 }
 
 /** A runnable class to execute the code generator without further setup */
