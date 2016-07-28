@@ -50,7 +50,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
   def pattern: Pattern = Pattern.UnPackaged
   /** Generates code for the complete model (not wrapped in a package yet)
       @group Basic customization overrides */
-  def code = patternBuilder( generatedTables ,"slick.jdbc.JdbcProfile" , "slick.codegen", "Tables" , None , pattern).map{ _.code }.mkString
+  def code = packageCode( generatedTables ,"slick.jdbc.JdbcProfile" , "slick.codegen", "Tables" , None , pattern).map{ _.code }.mkString
 
   protected def tuple(i: Int) = termName(s"_${i+1}")
 
