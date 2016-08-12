@@ -59,26 +59,25 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
 
     //build and nest tuples if > 22 elements
     def tupleBuilder(values: Seq[String] , prefix: String): String = {
-      def mkTuple[T](l: Seq[T], _prefix: String) = l.map{ s => _prefix + s}.mkString("(" , " ," , ")")
-      def group[T](l: Seq[T] ) : Seq[ Seq[T] ] = {
-          if( l.isEmpty ) Seq[ Seq[T] ]()
-          else Seq[Seq[T]](l.take(22)) ++ group(l.drop(22) )
-      }
-      if(values.size <= 22) mkTuple(values,"") else mkTuple( group(values).map {mkTuple(_,prefix)} , "" )
+      def mkTuple[T](l: Seq[T], _prefix: String) = l.map{ _prefix + _ }.mkString("(" , " ," , ")")
+      if(values.size <= 22) 
+        mkTuple(values,"") 
+      else 
+        mkTuple( values.grouped(22).toList.map {mkTuple(_,prefix)} , ""  )
     }
 
     def tupleFactoryBuilder(columns: Seq[Column]): String = {
         if(columns.size <= 22 ) s"${TableClass.elementType}.tupled"
         else{
           val count = if( columns.size%22 == 0 ) columns.size/22 else (columns.size/22)+1
-          val tuples = for( i <- Range(0,count)) yield s"t${i}"
+          val tuples = Range(0,count).map{ "t" + _ }
           s"""{case ${tuples.mkString("(",",",")")} => ${TableClass.elementType}""" + tuples.map {
             tple => {
               val mod = if(tuples.size == 1 ) columns.size 
                         else if(tuples.indexOf(tple) == 0 && columns.size > 22) 22  
                         else columns.size%(tuples.indexOf(tple) * 22)
               val entries = if( mod == 0 ) 22 else mod   
-              for( i <- Range(0,entries) ) yield s"${tple}.${tuple(i)}"
+              Range(0,entries).map{ s"${tple}." + tuple(_) }
             }
           }.flatten.mkString("(" , " ," , ")") + "}" 
         }
@@ -92,7 +91,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     }
 
     def factory   = if(columns.size == 1) TableClass.elementType 
-                    else if( hlistEnabled ) columns.map( c => c ).mkString("(" , " ::" , " HNil")
+                    else if( hlistEnabled ) columns.mkString("(" , " ::" , " HNil")
                     else tupleFactoryBuilder(columns)
     def extractor = s"${TableClass.elementType}.unapply"
 
