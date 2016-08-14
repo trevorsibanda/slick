@@ -15,7 +15,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
       @group Basic customization overrides */
   def code = {
     "import slick.model.ForeignKeyAction\n" +
-    ( if(tables.exists(_.hlistEnabled) || tables.exists(_.columns.size >= 22)){
+    ( if(tables.exists(_.hlistEnabled)){
         "import slick.collection.heterogeneous._\n"+
         "import slick.collection.heterogeneous.syntax._\n"
       } else ""
@@ -69,7 +69,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     def tupleFactoryBuilder(columns: Seq[Column]): String = {
         if(columns.size <= 22 ) s"${TableClass.elementType}.tupled"
         else{
-          val count = if( columns.size%22 == 0 ) columns.size/22 else (columns.size/22)+1
+          val count = (columns.size / 22.0).ceil.toInt
           val tuples = Range(0,count).map{ "t" + _ }
           s"""{case ${tuples.mkString("(",",",")")} => ${TableClass.elementType}""" + tuples.map {
             tple => {
