@@ -57,25 +57,24 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
       else compoundValue(types)
     }
 
+    val maxTupleSize = 22
     //build and nest tuples if > 22 elements
-    def tupleBuilder(values: Seq[String] , prefix: String): String = {
+    def nestedTuple(values: Seq[String] , prefix: String): String = {
       def mkTuple[T](l: Seq[T], _prefix: String) = l.map{ _prefix + _ }.mkString("(" , ", " , ")")
-      if(values.size <= 22) 
+      if(values.size <= maxTupleSize)
         mkTuple( values, "" )
       else 
-        mkTuple( values.grouped(22).toList.map {mkTuple(_,prefix)}, "" )
+        mkTuple( values.grouped(maxTupleSize).toList.map {mkTuple(_,prefix)}, "" )
     }
 
-    def tupleFactoryBuilder(columns: Seq[Column]): String = {
-      val count = (columns.size / 22.0).ceil.toInt
+    def nestedTupleFactory(columns: Seq[Column]): String = {
+      val count = (columns.size / maxTupleSize.toFloat).ceil.toInt
       val tuples = Range(0,count).map{ "t" + _ }
-      s"""{ case ${tuples.mkString("(",", ",")")} => ${TableClass.elementType}""" + tuples.map {
-        tple => {
-          val mod = if(tuples.size == 1) columns.size 
-                    else if(tuples.indexOf(tple) == 0 && columns.size > 22) 22  
-                    else columns.size%(tuples.indexOf(tple) * 22)
-          val entries = if( mod == 0 ) 22 else mod   
-          Range(0,entries).map{ s"${tple}." + tuple(_) }
+      s"""{ case ${tuples.mkString("(",", ",")")} => ${TableClass.elementType}""" + tuples.zipWithIndex.map {
+        case(tple,index) => {
+          columns.slice( index*maxTupleSize , (index*maxTupleSize)+maxTupleSize ).zipWithIndex.map{
+            case(c,index)=> s"${tple}.${tuple(index)}"
+          }
         }
       }.flatten.mkString("(" , ", " , ")") + "}" 
     }
@@ -84,13 +83,13 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     def compoundValue(values: Seq[String], prefix: String): String = {
       if(hlistEnabled) values.mkString(" :: ") + " :: HNil"
       else if (values.size == 1) values.head
-      else tupleBuilder(values, prefix)
+      else nestedTuple(values, prefix)
     }
 
     def factory   = if(columns.size == 1) TableClass.elementType 
                     else if(hlistEnabled) columns.mkString("(", " :: ", " HNil")
-                    else if(columns.size <= 22) s"${TableClass.elementType}.tupled"
-                    else tupleFactoryBuilder(columns)
+                    else if(columns.size <= maxTupleSize) s"${TableClass.elementType}.tupled"
+                    else nestedTupleFactory(columns)
     def extractor = s"${TableClass.elementType}.unapply"
 
     trait EntityTypeDef extends super.EntityTypeDef{
@@ -105,7 +104,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
         if(classEnabled){
           val _parents = (parents.take(1).map(" extends "+_) ++ parents.drop(1).map(" with "+_)).mkString("")
           val companion: String =
-            if(columns.size >= 22)(
+            if(columns.size >= maxTupleSize)(
               s"""
 object $name{
   def unapply(x: $name) = {
@@ -133,12 +132,15 @@ def $name($args): $name = {
         def argList(values: Seq[String]) = values.mkString("(" ,", " , ")")
         val positional = columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]"))
         val dependencies = columns.map(_.exposedType).distinct.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
-        val rearranged = desiredColumnOrder.map(i => tuple(i))
+        val rearranged   =if( desiredColumnOrder.size <= maxTupleSize)
+                            desiredColumnOrder.map(i => tuple(i))
+                          else
+                            desiredColumnOrder.zipWithIndex.map{ case(index,i) => s"${tuple(index/maxTupleSize)}.${tuple(index%maxTupleSize)}" }
         def result(args: Seq[String]) = s"""${TableClass.elementType}${argList(args)}""" 
         val body =
           if(autoIncLastAsOption && columns.size > 1){
             s"""
-val r = ${tupleBuilder(positional, "")}
+val r = ${nestedTuple(positional, "")}
 import r._
 ${result(rearranged)} // putting AutoInc last
             """.trim
