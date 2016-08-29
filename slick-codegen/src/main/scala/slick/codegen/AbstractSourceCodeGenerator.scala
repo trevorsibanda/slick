@@ -59,39 +59,37 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
 
     //build and nest tuples if > 22 elements
     def tupleBuilder(values: Seq[String] , prefix: String): String = {
-      def mkTuple[T](l: Seq[T], _prefix: String) = l.map{ _prefix + _ }.mkString("(" , " ," , ")")
+      def mkTuple[T](l: Seq[T], _prefix: String) = l.map{ _prefix + _ }.mkString("(" , ", " , ")")
       if(values.size <= 22) 
-        mkTuple(values,"") 
+        mkTuple( values, "" )
       else 
-        mkTuple( values.grouped(22).toList.map {mkTuple(_,prefix)} , ""  )
+        mkTuple( values.grouped(22).toList.map {mkTuple(_,prefix)}, "" )
     }
 
     def tupleFactoryBuilder(columns: Seq[Column]): String = {
-        if(columns.size <= 22 ) s"${TableClass.elementType}.tupled"
-        else{
-          val count = (columns.size / 22.0).ceil.toInt
-          val tuples = Range(0,count).map{ "t" + _ }
-          s"""{case ${tuples.mkString("(",",",")")} => ${TableClass.elementType}""" + tuples.map {
-            tple => {
-              val mod = if(tuples.size == 1 ) columns.size 
-                        else if(tuples.indexOf(tple) == 0 && columns.size > 22) 22  
-                        else columns.size%(tuples.indexOf(tple) * 22)
-              val entries = if( mod == 0 ) 22 else mod   
-              Range(0,entries).map{ s"${tple}." + tuple(_) }
-            }
-          }.flatten.mkString("(" , " ," , ")") + "}" 
+      val count = (columns.size / 22.0).ceil.toInt
+      val tuples = Range(0,count).map{ "t" + _ }
+      s"""{ case ${tuples.mkString("(",", ",")")} => ${TableClass.elementType}""" + tuples.map {
+        tple => {
+          val mod = if(tuples.size == 1) columns.size 
+                    else if(tuples.indexOf(tple) == 0 && columns.size > 22) 22  
+                    else columns.size%(tuples.indexOf(tple) * 22)
+          val entries = if( mod == 0 ) 22 else mod   
+          Range(0,entries).map{ s"${tple}." + tuple(_) }
         }
+      }.flatten.mkString("(" , ", " , ")") + "}" 
     }
 
-    def compoundValue(values: Seq[String]) = compoundValue(values , "")
-    def compoundValue(values: Seq[String] , prefix: String): String = {
+    def compoundValue(values: Seq[String]) = compoundValue(values, "")
+    def compoundValue(values: Seq[String], prefix: String): String = {
       if(hlistEnabled) values.mkString(" :: ") + " :: HNil"
       else if (values.size == 1) values.head
       else tupleBuilder(values, prefix)
     }
 
     def factory   = if(columns.size == 1) TableClass.elementType 
-                    else if( hlistEnabled ) columns.mkString("(" , " ::" , " HNil")
+                    else if(hlistEnabled) columns.mkString("(", " :: ", " HNil")
+                    else if(columns.size <= 22) s"${TableClass.elementType}.tupled"
                     else tupleFactoryBuilder(columns)
     def extractor = s"${TableClass.elementType}.unapply"
 
@@ -105,20 +103,19 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
           )
         ).mkString(", ")
         if(classEnabled){
-          val prns = (parents.take(1).map(" extends "+_) ++ parents.drop(1).map(" with "+_)).mkString("")
-          val companion: String = if(columns.size >= 22) s"""
+          val _parents = (parents.take(1).map(" extends "+_) ++ parents.drop(1).map(" with "+_)).mkString("")
+          val companion: String =
+            if(columns.size >= 22)(
+              s"""
 object $name{
-  def unapply(x: $name ) = {
-    val data = ${compoundValue(columns.map(_.name) , "x.")}
-    Option[data.type](data)
+  def unapply(x: $name) = {
+    val data = ${compoundValue(columns.map(_.name), "x.")}
+    Option(data)
   }
 }
-"""
-                                  else ""
-s"""
-$companion
-case class $name($args)$prns
-"""
+              """.trim + "\n"
+            ) else ""
+          s"""${companion}case class $name($args)${_parents}"""
         } else {
           s"""
 type $name = $types
@@ -133,25 +130,21 @@ def $name($args): $name = {
 
     trait PlainSqlMapperDef extends super.PlainSqlMapperDef{
       def code = {
-        def mkArgs(values: Seq[String] ) = {
-          if (values.size == 1) s"""( ${values.head} )"""
-          else values.mkString("(" ," , " , " )")
-        }
-
-        val positional = mkArgs(columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
+        def argList(values: Seq[String]) = values.mkString("(" ,", " , ")")
+        val positional = columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]"))
         val dependencies = columns.map(_.exposedType).distinct.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
-        val rearranged = mkArgs(desiredColumnOrder.map(i => tuple(i)) )
-        def result(args: String) = s"""${TableClass.elementType}${args}""" 
+        val rearranged = desiredColumnOrder.map(i => tuple(i))
+        def result(args: Seq[String]) = s"""${TableClass.elementType}${argList(args)}""" 
         val body =
-          if(autoIncLastAsOption && columns.size > 1 && columns.size <= 22 ){
+          if(autoIncLastAsOption && columns.size > 1){
             s"""
-val r = $positional
+val r = ${tupleBuilder(positional, "")}
 import r._
 ${result(rearranged)} // putting AutoInc last
             """.trim
-          } 
-          else
-           result(positional)
+          } else {
+            result(positional)
+          }
         s"""
 implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR{
   prs => import prs._
@@ -170,7 +163,7 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
       def option = {
         val struct = compoundValue(columns.map(c=>if(c.model.nullable)s"${c.name}" else s"Rep.Some(${c.name})"))
         val rhs = if(mappingEnabled) s"""$struct.shaped.<>($optionFactory, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))""" else struct
-        if( columns.size > 22 && !hlistEnabled ) s"""""" else s"def ? = $rhs"
+        s"def ? = $rhs"
       }
       def optionFactory = {
         val accessors = columns.zipWithIndex.map{ case(c,i) =>

@@ -149,7 +149,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** The * projection that accumulates all columns and map them if mappingEnabled is true*/
       def star: Code
       /** Indicates whether a ? projection should be generated. */
-      def optionEnabled = mappingEnabled && columns.exists(c => !c.model.nullable)
+      def optionEnabled = mappingEnabled && columns.exists(c => !c.model.nullable) && (columns.size <= 22 || hlistEnabled)
       /** The ? projection to produce an Option row. Useful for outer joins. */
       def option: Code
       /** Function that constructs an Option of an entity object from the unmapped Option values */
