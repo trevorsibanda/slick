@@ -20,7 +20,7 @@ object GenerateRoundtripSources {
     object Tables extends Tables(profile)
     import Tables._
     import Tables.profile.api._
-    val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
+    val ddl = huge.schema ++ posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
     val a1 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
       override def tableName = {
         case n if n.toLowerCase == "null" => "null" // testing null as table name
@@ -47,8 +47,10 @@ object GenerateRoundtripSources {
   }
 }
 
-class Tables(val profile: JdbcProfile){
+class Tables(val profile: JdbcProfile) extends HugeTable{
   import profile.api._
+  val huge = TableQuery[Huge]
+
   /** Tests single column table, scala keyword type name, non-dentifier column name and all nullable columns table*/
   class `null`(tag: Tag) extends Table[Option[String]](tag, "null") {
     def name = column[Option[String]]("na me")
