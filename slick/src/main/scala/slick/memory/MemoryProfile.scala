@@ -165,9 +165,14 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
           t.indexes.toIndexedSeq, t.tableConstraints.toIndexedSeq)
       )
     }
+
+    def createIfNotExists = create
+
     def drop = dbAction { session =>
       tables.foreach(t => session.database.dropTable(t.tableName))
     }
+
+    def dropIfExists = drop
 
     def truncate = dbAction{ session =>
       tables.foreach(t => session.database.truncateTable(t.tableName) )

@@ -218,4 +218,38 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       _ = assert(newRes.toSet == Set())
     } yield ()
   }
+
+  def testCreateIfNotExistsDropIfExists = {
+    import scala.util.{Success, Failure}
+    class T(_tag: Tag) extends Table[Int](_tag , "ddl_test"){
+      def a = column[Int]("a")
+      def * = a
+    }
+
+    val ts = TableQuery[T]
+    for{
+      _ <- ts.schema.create
+      _ <- ts.schema.createIfNotExists
+      initial <- ts.result
+      _ = assert(initial.toSet == Set())
+      res <- (ts ++= Seq(2, 3, 1, 5, 4)) >> ts.result
+      _ = assert(res.toSet == Set(2, 3, 1, 5, 4))
+      _ <- ts.schema.drop
+      _ <- ts.schema.dropIfExists
+      _ <- ts.schema.createIfNotExists
+      _ <- ts.schema.create.asTry.map{
+        case Failure(e:java.sql.SQLException) if e.getMessage.toLowerCase.contains("""already exists""") => ()
+        case Failure(e:java.sql.BatchUpdateException) if e.getMessage.toLowerCase.contains("already exists") => ()
+        case Failure( e ) => throw e
+        case Success(_) => throw new Exception("Should have failed to create new table. Table exists")
+      }
+      _ <- ts.schema.dropIfExists
+      _ <- ts.schema.drop.asTry.map{
+        case Failure(e:java.sql.SQLException) if e.getMessage.toLowerCase.contains("""not found""") => ()
+        case Failure(e:java.sql.BatchUpdateException) if e.getMessage.toLowerCase.contains("not found") => ()
+        case Failure( e ) => throw e
+        case Success(_) => throw new Exception("Should have failed to drop table. Table already dropped")
+      }
+    } yield ()
+  } 
 }
