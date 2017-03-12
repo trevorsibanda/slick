@@ -158,6 +158,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
 
   class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
     protected[this] val tables = schema.asInstanceOf[DDL].tables
+    import slick.SlickException
     def create = dbAction { session =>
       tables.foreach(t =>
         session.database.createTable(t.tableName,
@@ -166,13 +167,21 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       )
     }
 
-    def createIfNotExists = create
+    def createIfNotExists = dbAction { session =>
+      tables.foreach(t =>
+        session.database.createTableIfNotExists(t.tableName,
+          t.create_*.map { fs => new HeapBackend.Column(fs, typeInfoFor(fs.tpe)) }.toIndexedSeq,
+          t.indexes.toIndexedSeq, t.tableConstraints.toIndexedSeq)
+      )
+    }
 
     def drop = dbAction { session =>
       tables.foreach(t => session.database.dropTable(t.tableName))
     }
 
-    def dropIfExists = drop
+    def dropIfExists = dbAction { session =>
+      tables.foreach(t => session.database.dropTableIfExists(t.tableName))
+    }
 
     def truncate = dbAction{ session =>
       tables.foreach(t => session.database.truncateTable(t.tableName) )

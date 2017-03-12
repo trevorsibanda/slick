@@ -602,12 +602,12 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected def createIfNotExistsPhase = Iterable(createTable(true)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
     protected def createPhase2 = foreignKeys.map(createForeignKey)
     protected def dropPhase1 = foreignKeys.map(dropForeignKey)
-    protected def dropIfExistsPhase = primaryKeys.map(dropPrimaryKey) ++Iterable(dropTable(false))
-    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable(true))
+    protected def dropIfExistsPhase = primaryKeys.map(dropPrimaryKey) ++Iterable(dropTable(true))
+    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable(false))
     protected def truncatePhase = Iterable(truncateTable)
 
-    protected def createTable(checkExists: Boolean): String = {
-      val b = new StringBuilder append "create table " append (if(checkExists) "if not exists " else "") append quoteTableName(tableNode) append " ("
+    protected def createTable(checkNotExists: Boolean): String = {
+      val b = new StringBuilder append "create table " append (if(checkNotExists) "if not exists " else "") append quoteTableName(tableNode) append " ("
       var first = true
       for(c <- columns) {
         if(first) first = false else b append ","
@@ -620,7 +620,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     protected def addTableOptions(b: StringBuilder) {}
 
-    protected def dropTable(checkExists: Boolean): String = "drop table "+(if(checkExists) "if exists " else "")+quoteTableName(tableNode)
+    protected def dropTable(ifExists: Boolean): String = "drop table "+(if(ifExists) "if exists " else "")+quoteTableName(tableNode)
 
     protected def truncateTable: String = "truncate table "+ quoteTableName(tableNode)
 

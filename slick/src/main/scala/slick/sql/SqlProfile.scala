@@ -46,10 +46,10 @@ trait SqlProfile extends RelationalProfile with SqlTableComponent with SqlAction
     protected def dropPhase2: Iterable[String]
 
     /** All statements to execute for drop() */
-    def dropStatements: Iterator[String] = dropIfExistsPhase.iterator
+    def dropStatements: Iterator[String] = dropPhase1.iterator ++ dropPhase2.iterator
 
     /** All statements to execute for dropIfExists() */
-    def dropIfExistsStatements: Iterator[String] = dropPhase1.iterator ++ dropPhase2.iterator
+    def dropIfExistsStatements: Iterator[String] = dropIfExistsPhase.iterator
 
     /** Statements to execute first for truncate() */
     protected def truncatePhase: Iterable[String]
