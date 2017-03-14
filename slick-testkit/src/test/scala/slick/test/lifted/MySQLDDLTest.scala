@@ -32,6 +32,6 @@ class MysqlDDLTest {
 
     val s2 = ts2.schema.dropStatements.toList
     s2.foreach(s => assertTrue("DDL (drop) uses escaped table name: " + s, s contains "`mytable2`"))
-    assertTrue("Fk name must be escaped", s2.exists(_.contains("`t_test_fk`")))
+    assertTrue(s2.toString, s2.exists(_.contains("`t_test_fk`")))
   }
 }
