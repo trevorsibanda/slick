@@ -218,6 +218,27 @@ trait SQLServerProfile extends JdbcProfile {
       sb append ") on update " append (if(updateAction == "RESTRICT") "NO ACTION" else updateAction)
       sb append " on delete " append (if(deleteAction == "RESTRICT") "NO ACTION" else deleteAction)
     }
+
+    override def dropIfExistsPhase = {
+      //http://stackoverflow.com/questions/7887011/how-to-drop-a-table-if-it-exists-in-sql-server
+      Iterable(s"""if exists (select 1 from INFORMATION_SCHEMA.TABLES where TABLE_NAME = ${quoteIdentifier(tableNode.tableName)}""" +
+        (tableNode.schemaName match{
+          case Some(s)=>s"AND TABLE_SCHEMA = ${quoteIdentifier(s)}"
+          case None=>""
+          }
+        )) ++
+      Iterable("begin") ++
+      dropPhase1 ++ dropPhase2 ++
+      Iterable("end")
+    }
+
+    override def createIfNotExistsPhase = {
+      //http://stackoverflow.com/questions/5952006/how-to-check-if-table-exist-and-if-it-doesnt-exist-create-table-in-sql-server-2
+      Iterable(s"""IF  NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'${quoteTableName(tableNode)}') AND type in (N'U'))""") ++
+      Iterable("begin") ++
+      createPhase1 ++ createPhase2 ++
+      Iterable("end")
+    }
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
