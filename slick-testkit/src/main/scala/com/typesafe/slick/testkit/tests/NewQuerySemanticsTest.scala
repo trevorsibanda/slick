@@ -70,6 +70,8 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     val qa = for {
       c <- coffees.take(3)
     } yield (c.supID, (c.name, 42))
+    seq(setup, qa.result)
+    /*
     val qa2 = coffees.take(3).map(_.name).take(2)
     val qb = qa.take(2).map(_._2)
     val qb2 = qa.map(n => n).take(2).map(_._2)
@@ -329,6 +331,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     )
 
     seq(setup, a1, a2, a3, a4, a5, a6)
+    */
   }
 
   def testOldComposition = {
