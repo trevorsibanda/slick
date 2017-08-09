@@ -140,7 +140,9 @@ val  SimpleA = CustomTyping.SimpleA
         |    assertTrue("default value of char1_default_empty should be ' '", char1EmptyOptions.exists(option => (option equals TestDefault.baseTableRow.O.Default(Some(' ')))))
         |    assertTrue("default value of char1_default_valid should be 'a'", char1ValidOptions.exists(option => (option equals TestDefault.baseTableRow.O.Default(Some('a')))))
         |    assertTrue("default value of char1_default_invalid should not exist", char1InvalidOptions.forall(option => (option.isInstanceOf[RelationalProfile.ColumnOption.Default[_]])))
-        |  }
+        |  },
+        |  sql"INSERT INTO 'TIMESTAMP_TZ'(ts1, ts2) VALUES('2016-03-17 16:15:07.899+02', '2016-03-17T16:15:07.899+02');",
+        |  timestamp_tz.result
         |)
       """.stripMargin
     },

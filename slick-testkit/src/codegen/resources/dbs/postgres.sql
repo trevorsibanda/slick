@@ -61,3 +61,8 @@ CREATE TABLE "test_default" (
                        "char1_default_invalid" CHAR(1) DEFAULT 'ab',
                        "char1_default_null" CHAR(1) DEFAULT NULL
                       );
+
+create table "TIMESTAMPS"(
+  ts1 TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+  ts2 TIMESTAMP WITH TIME ZONE NOT NULL
+);
